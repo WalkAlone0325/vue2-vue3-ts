@@ -182,7 +182,7 @@ function useSearchHistory() {
     searchHistorys.value = [...new Set(state.searchHistorys)]
     // 历史记录长度的限制
     if (state.searchHistorys.length > 10) {
-      state.searchHistory.length = 10
+      state.searchHistorys.length = 10
     }
 
     setStorage({
@@ -195,7 +195,7 @@ function useSearchHistory() {
     getStorage({
       key: 'searchHistory',
       success: data => {
-        state.searchHistory = data
+        state.searchHistorys = data
       },
     })
   })

@@ -2,77 +2,229 @@
   <div id="app">
     <div class="search-input">
       <i class="iconfont icon-search"></i>
-      <input type="text" placeholder="搜索歌曲" />
-      <i class="iconfont icon-guanbi"></i>
+      <input
+        type="text"
+        placeholder="搜索歌曲"
+        v-model="searchWord"
+        @input="handleToSuggest"
+        @keyup.enter="handleToList(searchWord)"
+      />
+      <i class="iconfont icon-guanbi" v-if="searchType != 1" @click="handleToClose"></i>
     </div>
-    <div class="search-history">
-      <div class="search-history-head">
-        <span>历史记录</span>
-        <i class="iconfont icon-lajitong"></i>
-      </div>
-      <div class="search-history-list">
-        <div>少年</div>
-        <div>如果遇见她</div>
-      </div>
-    </div>
-    <div class="search-hot">
-      <div class="search-hot-head">热搜榜</div>
-      <div class="search-hot-item">
-        <div class="search-hot-top">1</div>
-        <div class="search-hot-word">
-          <div>
-            少年
-            <i class="iconfont icon-dujia"></i>
+    <template v-if="searchType == 1">
+      <div class="search-history">
+        <div class="search-history-head">
+          <span>历史记录</span>
+          <i class="iconfont icon-lajitong" @click="handleToClear"></i>
+        </div>
+        <div class="search-history-list">
+          <div v-for="item in searchHistorys" :key="item" @click="handleToList(item)">
+            {{ item }}
           </div>
-          <div>"少年"这份词实在是太美了</div>
         </div>
-        <span class="search-hot-count">2968466</span>
       </div>
-      <div class="search-hot-item">
-        <div class="search-hot-top">2</div>
-        <div class="search-hot-word">
-          <div>
-            少年
-            <i class="iconfont icon-dujia"></i>
+      <div class="search-hot">
+        <div class="search-hot-head">热搜榜</div>
+        <div class="search-hot-item" v-for="(item, index) in searchHot" :key="index">
+          <div class="search-hot-top">{{ index + 1 }}</div>
+          <div class="search-hot-word">
+            <div>
+              {{ item.searchWord }}
+              <img v-show="item.iconUrl" :src="item.iconUrl" alt="" />
+            </div>
+            <div>{{ item.content }}</div>
           </div>
-          <div>"少年"这份词实在是太美了</div>
+          <span class="search-hot-count">{{ item.score }}</span>
         </div>
-        <span class="search-hot-count">2968466</span>
       </div>
-    </div>
-    <div class="search-result">
-      <div class="search-result-item">
-        <div class="search-result-word">
-          <div>少年</div>
-          <div>许巍 - 爱如少年</div>
+    </template>
+    <template v-else-if="searchType == 2">
+      <div class="search-result">
+        <div class="search-result-item" v-for="(item, index) in searchList" :key="index">
+          <div class="search-result-word">
+            <div>{{ item.name }}</div>
+            <div>{{ item.artists[0].name }} - {{ item.album.name }}</div>
+          </div>
+          <i class="iconfont icon-bofang1"></i>
         </div>
-        <i class="iconfont icon-bofang1"></i>
       </div>
-      <div class="search-result-item">
-        <div class="search-result-word">
-          <div>少年</div>
-          <div>许巍 - 爱如少年</div>
+    </template>
+    <template v-else-if="searchType == 3">
+      <div class="search-suggest">
+        <div class="search-suggest-head">搜索 “{{ searchWord }}”</div>
+        <div
+          class="search-suggest-item"
+          v-for="(item, index) in searchSuggest"
+          :key="index"
+          @click="handleToList(item.keyword)"
+        >
+          <i class="iconfont icon-search"></i>
+          {{ item.keyword }}
         </div>
-        <i class="iconfont icon-bofang1"></i>
       </div>
-    </div>
-    <div class="search-suggest">
-      <div class="search-suggest-head">搜索 “少年”</div>
-      <div class="search-suggest-item">
-        <i class="iconfont icon-search"></i>
-        少年抖音
-      </div>
-      <div class="search-suggest-item">
-        <i class="iconfont icon-search"></i>
-        少年抖音
-      </div>
-    </div>
+    </template>
   </div>
 </template>
 
-<script>
-export default {
+<script lang="ts">
+import axios from 'axios'
+import { defineComponent, onMounted, reactive, ref, toRefs, Ref } from 'vue'
+
+export default defineComponent({
   name: 'App',
+  setup() {
+    const searchType = ref(1)
+    const searchWord = ref('')
+
+    const { searchHot } = useSearchHot()
+    const { searchSuggest, handleToSuggest } = useSearchSuggest(searchType, searchWord)
+    const { searchList, handleToList, handleToClose } = useSearchList(
+      searchType,
+      searchWord,
+      function(word: string) {
+        setToHistory(word)
+      },
+    )
+    const { searchHistorys, handleToClear, setToHistory } = useSearchHistory()
+
+    return {
+      searchType,
+      searchWord,
+      searchHot,
+      searchSuggest,
+      handleToSuggest,
+      searchList,
+      handleToList,
+      handleToClose,
+      searchHistorys,
+      handleToClear,
+    }
+  },
+})
+
+function useSearchHot() {
+  const state = reactive({
+    searchHot: [],
+  })
+
+  onMounted(() => {
+    axios.get('/search/hot/detail').then(res => {
+      state.searchHot = res.data.data
+    })
+  })
+
+  return toRefs(state)
+}
+
+function useSearchSuggest(searchType: Ref<number>, searchWord: Ref<string>) {
+  const state = reactive({
+    searchSuggest: [],
+  })
+  const { searchSuggest } = toRefs(state)
+  const handleToSuggest = () => {
+    if (!searchWord.value) {
+      searchType.value = 1
+      return
+    }
+    axios.get(`/search/suggest?keywords=${searchWord.value}&type=mobile`).then(res => {
+      state.searchSuggest = res.data.result.allMatch
+      searchType.value = 3
+    })
+  }
+
+  return { searchSuggest, handleToSuggest }
+}
+function useSearchList(
+  searchType: Ref<number>,
+  searchWord: Ref<string>,
+  callback: (w: string) => void,
+) {
+  const state = reactive({
+    searchList: [],
+  })
+
+  const { searchList } = toRefs(state)
+
+  const handleToClose = () => {
+    searchWord.value = ''
+    searchType.value = 1
+  }
+
+  const handleToList = (word: string) => {
+    searchWord.value = word
+    callback(word)
+    getSearchList()
+  }
+  const getSearchList = () => {
+    axios.get(`/search?keywords=${searchWord.value}`).then(res => {
+      state.searchList = res.data.result.songs
+      searchType.value = 2
+    })
+  }
+
+  return { searchList, handleToList, handleToClose }
+}
+
+function useSearchHistory() {
+  type Data = {
+    searchHistorys: string[]
+  }
+  const state: Data = reactive({
+    searchHistorys: [],
+  })
+  const { searchHistorys } = toRefs(state)
+
+  const handleToClear = () => {
+    removeStorage({
+      key: 'searchHistory',
+      success: () => {
+        state.searchHistorys = []
+      },
+    })
+  }
+
+  const setToHistory = (word: string) => {
+    state.searchHistorys.unshift(word)
+    // 过滤掉重复的子项
+    searchHistorys.value = [...new Set(state.searchHistorys)]
+    // 历史记录长度的限制
+    if (state.searchHistorys.length > 10) {
+      state.searchHistorys.length = 10
+    }
+
+    setStorage({
+      key: 'searchHistory',
+      data: state.searchHistorys,
+    })
+  }
+
+  onMounted(() => {
+    getStorage({
+      key: 'searchHistory',
+      success: data => {
+        state.searchHistorys = data
+      },
+    })
+  })
+
+  return { searchHistorys, handleToClear, setToHistory }
+}
+
+// Storage
+function setStorage({ key, data }: { key: string; data: string[] }) {
+  window.localStorage.setItem(key, JSON.stringify(data))
+}
+function getStorage({ key, success }: { key: string; success: (arg: []) => void }) {
+  const data = window.localStorage.getItem(key)
+  if (typeof data === 'string') {
+    success(JSON.parse(data))
+  } else {
+    success([])
+  }
+}
+function removeStorage({ key, success }: { key: string; success: () => void }) {
+  window.localStorage.removeItem(key)
+  success()
 }
 </script>
 
