@@ -1,4 +1,5 @@
 <template>
+  <HelloWorld />
   <div id="app">
     <div class="search-input">
       <i class="iconfont icon-search"></i>
@@ -69,12 +70,18 @@
 <script lang="ts">
 import axios from 'axios'
 import { defineComponent, onMounted, reactive, ref, toRefs, Ref } from 'vue'
+import { provideStore } from './useSearchWord'
+import HelloWorld from './components/HelloWorld.vue'
 
 export default defineComponent({
   name: 'App',
+  components: { HelloWorld },
   setup() {
     const searchType = ref(1)
     const searchWord = ref('')
+
+    // 注入
+    provideStore(searchWord)
 
     const { searchHot } = useSearchHot()
     const { searchSuggest, handleToSuggest } = useSearchSuggest(searchType, searchWord)
